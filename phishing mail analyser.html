@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Phishing Email Detector</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f4f4f2;
+  color: #1a1a1a;
+  padding: 2rem 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.wrap { width: 100%; max-width: 780px; }
+
+h1 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sub {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e0ddd6;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 1rem;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.metric {
+  background: #f8f8f6;
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+
+.metric-val {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metric-lbl {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.green { color: #1a7a3c; }
+.red   { color: #c0392b; }
+.blue  { color: #1a5fa0; }
+.amber { color: #a0720a; }
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.chart-box {
+  background: #fff;
+  border: 1px solid #e0ddd6;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.chart-box canvas { width: 100% !important; }
+
+textarea {
+  width: 100%;
+  min-height: 120px;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  border: 1px solid #d3d1c7;
+  border-radius: 8px;
+  padding: 12px;
+  resize: vertical;
+  outline: none;
+  color: #1a1a1a;
+  background: #fff;
+}
+
+textarea:focus { border-color: #5a8fd0; }
+
+.btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+button {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+button:hover { opacity: 0.85; }
+
+.btn-primary { background: #1a5fa0; color: #fff; }
+.btn-ghost   { background: #f0ede8; color: #555; }
+
+.result-box {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  font-size: 15px;
+  font-weight: 600;
+  display: none;
+}
+
+.result-phish { background: #fdecea; color: #8b1a1a; border: 1px solid #f5b8b8; }
+.result-safe  { background: #e8f5ec; color: #1a5c2a; border: 1px solid #a8dbb5; }
+
+.result-detail {
+  font-size: 13px;
+  font-weight: 400;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid;
+}
+
+.pill-red    { background: #fdecea; color: #8b1a1a; border-color: #f5b8b8; }
+.pill-green  { background: #e8f5ec; color: #1a5c2a; border-color: #a8dbb5; }
+.pill-gray   { background: #f0ede8; color: #555;    border-color: #d3d1c7; }
+
+.sample-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #d3d1c7;
+  background: #f8f8f6;
+  color: #555;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.sample-btn:hover { background: #eee; }
+
+.confusion-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 0.5rem;
+}
+
+.confusion-table th, .confusion-table td {
+  border: 1px solid #e0ddd6;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.confusion-table th { background: #f8f8f6; font-weight: 600; }
+.cell-tp { background: #e8f5ec; color: #1a5c2a; font-weight: 700; }
+.cell-tn { background: #e8f5ec; color: #1a5c2a; font-weight: 700; }
+.cell-fp { background: #fdecea; color: #8b1a1a; font-weight: 700; }
+.cell-fn { background: #fdecea; color: #8b1a1a; font-weight: 700; }
+
+.progress-bar-wrap {
+  background: #eee;
+  border-radius: 99px;
+  height: 8px;
+  overflow: hidden;
+  margin: 4px 0 12px;
+}
+
+.progress-bar { height: 100%; border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Phishing Email Detection Model</h1>
+  <p class="sub">Naive Bayes classifier trained in-browser on 80 labeled emails. No server required.</p>
+
+  <div class="card" id="training-card">
+    <div class="card-title">Model training</div>
+    <div class="progress-bar-wrap"><div class="progress-bar" id="train-progress" style="width:0%;background:#1a5fa0"></div></div>
+    <p id="train-status" style="font-size:13px;color:#888">Initializing dataset...</p>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric"><div class="metric-val green" id="m-acc">—</div><div class="metric-lbl">Accuracy</div></div>
+    <div class="metric"><div class="metric-val blue"  id="m-prec">—</div><div class="metric-lbl">Precision</div></div>
+    <div class="metric"><div class="metric-val amber" id="m-rec">—</div><div class="metric-lbl">Recall</div></div>
+    <div class="metric"><div class="metric-val green" id="m-f1">—</div><div class="metric-lbl">F1 Score</div></div>
+  </div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="card-title">Confusion matrix</div>
+      <table class="confusion-table" id="conf-table">
+        <tr><th></th><th>Predicted safe</th><th>Predicted phish</th></tr>
+        <tr><th>Actual safe</th><td class="cell-tn" id="tn">—</td><td class="cell-fp" id="fp">—</td></tr>
+        <tr><th>Actual phish</th><td class="cell-fn" id="fn">—</td><td class="cell-tp" id="tp">—</td></tr>
+      </table>
+    </div>
+    <div class="chart-box">
+      <div class="card-title">Top phishing keywords</div>
+      <canvas id="kw-chart" height="180"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Classify an email</div>
+    <div class="btn-row" style="margin-top:0;margin-bottom:10px">
+      <button class="sample-btn" onclick="loadSample('phish')">Load phishing sample</button>
+      <button class="sample-btn" onclick="loadSample('safe')">Load safe sample</button>
+      <button class="sample-btn" onclick="loadSample('subtle')">Load subtle phish</button>
+    </div>
+    <textarea id="email-input" placeholder="Paste email subject + body here..."></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="classify()">Classify email</button>
+      <button class="btn-ghost"   onclick="clearInput()">Clear</button>
+    </div>
+    <div class="result-box" id="result-box">
+      <div id="result-verdict"></div>
+      <div class="result-detail" id="result-detail"></div>
+      <div class="feature-pills" id="result-pills"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DATASET = [
+  { label: 1, text: "urgent action required verify your account immediately click here to confirm your password" },
+  { label: 1, text: "congratulations you have won a prize claim your reward now limited time offer" },
+  { label: 1, text: "your account has been suspended please verify your credentials by clicking the link below" },
+  { label: 1, text: "dear customer your paypal account needs immediate attention login now to avoid suspension" },
+  { label: 1, text: "security alert unusual sign in detected please verify your identity immediately" },
+  { label: 1, text: "your bank account has been compromised update your information now to secure your funds" },
+  { label: 1, text: "free gift card click here to claim your amazon gift card worth 500 dollars" },
+  { label: 1, text: "final notice your subscription will expire unless you update payment details immediately" },
+  { label: 1, text: "you have been selected for a special offer enter your credit card details to claim" },
+  { label: 1, text: "important notice from irs you owe back taxes pay immediately to avoid arrest" },
+  { label: 1, text: "your apple id has been locked verify now to restore access click the link" },
+  { label: 1, text: "wire transfer confirmation required authorize this payment from your account now" },
+  { label: 1, text: "dear valued customer your password expires today update now or lose access" },
+  { label: 1, text: "you have a pending package delivery click to confirm your address and pay small fee" },
+  { label: 1, text: "microsoft account security alert someone accessed your account verify immediately" },
+  { label: 1, text: "lucky winner you have won the lottery claim your prize send us your bank details" },
+  { label: 1, text: "urgent your email storage is full click here to upgrade or lose your emails" },
+  { label: 1, text: "job opportunity earn 500 dollars per day working from home apply now limited spots" },
+  { label: 1, text: "your netflix account payment failed update billing info now to avoid interruption" },
+  { label: 1, text: "confirm your identity to continue using your account enter your social security number" },
+  { label: 1, text: "click to unsubscribe from this list but first verify your email and password" },
+  { label: 1, text: "exclusive deal only for you act now before it expires free trial sign up today" },
+  { label: 1, text: "your computer has a virus call this number immediately to get support now" },
+  { label: 1, text: "you owe money to our company pay now or legal action will be taken against you" },
+  { label: 1, text: "refund pending enter your account info to receive your tax refund quickly" },
+  { label: 1, text: "account verification required submit your credentials to validate your identity" },
+  { label: 1, text: "earn money fast cryptocurrency investment guaranteed returns send bitcoin now" },
+  { label: 1, text: "update required your system needs immediate update click link to install security patch" },
+  { label: 1, text: "password reset requested click this link to reset your password immediately" },
+  { label: 1, text: "dear user your dropbox account will be deleted verify your login credentials now" },
+  { label: 1, text: "charity donation please help us send money to help sick children in need now" },
+  { label: 1, text: "you qualify for loan approval send your personal details and banking information" },
+  { label: 1, text: "click here free antivirus your pc is infected protect yourself now download" },
+  { label: 1, text: "inheritance fund you have been selected to receive million dollars send details" },
+  { label: 1, text: "dear client please click link to verify your account information or face suspension" },
+  { label: 1, text: "promo offer enter promo code and credit card number to receive your discount now" },
+  { label: 1, text: "urgent warning your google account has been hacked reset password immediately" },
+  { label: 1, text: "congratulations you are our monthly winner provide bank details to receive prize" },
+  { label: 1, text: "invoice attached open attachment to view and pay outstanding invoice immediately" },
+  { label: 1, text: "final warning deactivation of your email in 24 hours click link to prevent this" },
+  { label: 0, text: "hi team please find attached the agenda for our meeting tomorrow looking forward" },
+  { label: 0, text: "thank you for your order your package has been shipped and will arrive by friday" },
+  { label: 0, text: "just following up on the report from last week let me know if you have questions" },
+  { label: 0, text: "the quarterly budget review is scheduled for next thursday please review the documents" },
+  { label: 0, text: "your subscription has been renewed thank you for being a loyal customer" },
+  { label: 0, text: "here are the meeting notes from today please review and add any missing action items" },
+  { label: 0, text: "happy birthday hope you have a wonderful day enjoy your special celebration" },
+  { label: 0, text: "please review the attached contract and let us know if you have any concerns" },
+  { label: 0, text: "the new feature has been deployed to production all systems are running normally" },
+  { label: 0, text: "reminder the team lunch is tomorrow at noon the reservation is at the italian place" },
+  { label: 0, text: "your flight booking is confirmed departure is on monday at 9am gate information attached" },
+  { label: 0, text: "we wanted to share our latest newsletter with updates from the community" },
+  { label: 0, text: "the pull request has been reviewed and merged into the main branch good work" },
+  { label: 0, text: "your appointment is confirmed for tuesday at 2pm please arrive 10 minutes early" },
+  { label: 0, text: "thanks for joining our webinar today here is the recording and slide deck" },
+  { label: 0, text: "the new project kickoff is next week please prepare your status update beforehand" },
+  { label: 0, text: "we have updated our privacy policy please review the changes at your convenience" },
+  { label: 0, text: "your password was successfully changed if you did not make this change contact support" },
+  { label: 0, text: "hi just checking in on the proposal wanted to see if you had any feedback yet" },
+  { label: 0, text: "the software update will be deployed this weekend no action required on your part" },
+  { label: 0, text: "book club reminder we meet this thursday at 7pm bring your copy of the novel" },
+  { label: 0, text: "your invoice for this month is attached payment is due by the end of the month" },
+  { label: 0, text: "great catch on that bug the fix has been tested and is ready for review in staging" },
+  { label: 0, text: "the design mockups are ready for review please share feedback by end of week" },
+  { label: 0, text: "welcome to the team we are excited to have you on board orientation starts monday" },
+  { label: 0, text: "your request has been received our support team will respond within one business day" },
+  { label: 0, text: "here is the summary of action items from the board meeting please distribute to team" },
+  { label: 0, text: "the conference registration is now open early bird pricing ends at the end of the month" },
+  { label: 0, text: "your library books are due next tuesday you can renew them online if needed" },
+  { label: 0, text: "we have processed your refund please allow 5 to 7 business days for it to appear" },
+  { label: 0, text: "good news the client approved the proposal we can move forward with development" },
+  { label: 0, text: "just a heads up the office will be closed on monday for the public holiday" },
+  { label: 0, text: "your subscription receipt is attached no action is needed this is for your records" },
+  { label: 0, text: "please submit your timesheet by end of day friday payroll runs on monday morning" },
+  { label: 0, text: "the annual performance reviews will begin next month your manager will reach out" },
+  { label: 0, text: "we wanted to thank you for your continued support and feedback it means a lot" },
+  { label: 0, text: "the server maintenance window is scheduled for saturday 2am to 4am expect brief downtime" },
+  { label: 0, text: "here is the link to the shared folder with all the project assets you requested" },
+  { label: 0, text: "your gym membership has been renewed see you at the next class on wednesday" },
+  { label: 0, text: "congratulations on your promotion well deserved looking forward to working together" },
+  { label: 0, text: "the report is ready for your review attached as a pdf please share your thoughts" },
+];
+
+const PHISHING_KEYWORDS = [
+  'urgent','verify','click','immediately','account','suspended','winner',
+  'congratulations','free','gift','prize','limited','offer','password',
+  'bank','credentials','secure','update','expire','authorize','confirm',
+  'lottery','inheritance','wire','transfer','claim','reward','act now',
+  'credit card','social security','validate','arrest','hacked','compromised'
+];
+
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+}
+
+function extractFeatures(text) {
+  const lower = text.toLowerCase();
+  const tokens = tokenize(text);
+  const urlCount = (text.match(/https?:\/\/|www\./gi) || []).length;
+  const urgencyWords = ['urgent','immediately','now','expire','suspend','warning','alert','final','action required'].filter(w => lower.includes(w)).length;
+  const phishKws = PHISHING_KEYWORDS.filter(k => lower.includes(k));
+  const capsRatio = (text.match(/[A-Z]/g) || []).length / Math.max(text.length, 1);
+  const exclamations = (text.match(/!/g) || []).length;
+  const moneyMentions = (text.match(/\$|\bdollar|\bmoney|\bcash|\bpayment|\bpay\b|\bbank\b/gi) || []).length;
+  return { tokens, urlCount, urgencyWords, phishKws, capsRatio, exclamations, moneyMentions };
+}
+
+class NaiveBayes {
+  constructor() {
+    this.wordProb = [{}, {}];
+    this.classCounts = [0, 0];
+    this.vocabSize = 0;
+    this.vocab = new Set();
+  }
+
+  train(data) {
+    const wordCounts = [{}, {}];
+    data.forEach(({ label, text }) => {
+      this.classCounts[label]++;
+      tokenize(text).forEach(w => {
+        this.vocab.add(w);
+        wordCounts[label][w] = (wordCounts[label][w] || 0) + 1;
+      });
+    });
+    this.vocabSize = this.vocab.size;
+    [0, 1].forEach(cls => {
+      const total = Object.values(wordCounts[cls]).reduce((a, b) => a + b, 0);
+      this.vocab.forEach(w => {
+        this.wordProb[cls][w] = ((wordCounts[cls][w] || 0) + 1) / (total + this.vocabSize);
+      });
+    });
+  }
+
+  predict(text) {
+    const total = this.classCounts[0] + this.classCounts[1];
+    const logProbs = [0, 1].map(cls => {
+      let lp = Math.log(this.classCounts[cls] / total);
+      tokenize(text).forEach(w => {
+        if (this.vocab.has(w)) lp += Math.log(this.wordProb[cls][w]);
+      });
+      return lp;
+    });
+    const maxLP = Math.max(...logProbs);
+    const exps = logProbs.map(lp => Math.exp(lp - maxLP));
+    const sumExp = exps.reduce((a, b) => a + b, 0);
+    const probs = exps.map(e => e / sumExp);
+    return { label: probs[1] > probs[0] ? 1 : 0, confidence: Math.max(...probs), probPhish: probs[1] };
+  }
+}
+
+let model;
+let kwChart;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function trainModel() {
+  const statusEl = document.getElementById('train-status');
+  const progressEl = document.getElementById('train-progress');
+
+  statusEl.textContent = 'Shuffling dataset (80 emails)...';
+  progressEl.style.width = '20%';
+  await new Promise(r => setTimeout(r, 300));
+
+  const shuffled = shuffle(DATASET);
+  const splitAt = Math.floor(shuffled.length * 0.75);
+  const trainSet = shuffled.slice(0, splitAt);
+  const testSet  = shuffled.slice(splitAt);
+
+  statusEl.textContent = `Training on ${trainSet.length} emails...`;
+  progressEl.style.width = '50%';
+  await new Promise(r => setTimeout(r, 400));
+
+  model = new NaiveBayes();
+  model.train(trainSet);
+
+  statusEl.textContent = `Evaluating on ${testSet.length} emails...`;
+  progressEl.style.width = '80%';
+  await new Promise(r => setTimeout(r, 300));
+
+  let tp = 0, tn = 0, fp = 0, fn = 0;
+  testSet.forEach(({ label, text }) => {
+    const { label: pred } = model.predict(text);
+    if (pred === 1 && label === 1) tp++;
+    else if (pred === 0 && label === 0) tn++;
+    else if (pred === 1 && label === 0) fp++;
+    else fn++;
+  });
+
+  const acc   = (tp + tn) / testSet.length;
+  const prec  = tp / Math.max(tp + fp, 1);
+  const rec   = tp / Math.max(tp + fn, 1);
+  const f1    = 2 * prec * rec / Math.max(prec + rec, 0.001);
+
+  document.getElementById('m-acc').textContent  = (acc * 100).toFixed(1) + '%';
+  document.getElementById('m-prec').textContent = (prec * 100).toFixed(1) + '%';
+  document.getElementById('m-rec').textContent  = (rec * 100).toFixed(1) + '%';
+  document.getElementById('m-f1').textContent   = (f1 * 100).toFixed(1) + '%';
+  document.getElementById('tp').textContent = tp;
+  document.getElementById('tn').textContent = tn;
+  document.getElementById('fp').textContent = fp;
+  document.getElementById('fn').textContent = fn;
+
+  progressEl.style.width = '100%';
+  statusEl.textContent = `Training complete — vocabulary size: ${model.vocabSize} tokens`;
+
+  const kwScores = PHISHING_KEYWORDS.slice(0, 10).map(kw => {
+    const p0 = model.wordProb[0][kw] || 1e-6;
+    const p1 = model.wordProb[1][kw] || 1e-6;
+    return { kw, ratio: p1 / p0 };
+  }).sort((a, b) => b.ratio - a.ratio);
+
+  const ctx = document.getElementById('kw-chart').getContext('2d');
+  kwChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: kwScores.map(k => k.kw),
+      datasets: [{
+        label: 'Phish likelihood ratio',
+        data: kwScores.map(k => parseFloat(k.ratio.toFixed(2))),
+        backgroundColor: '#fdecea',
+        borderColor: '#c0392b',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#eee' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function classify() {
+  const text = document.getElementById('email-input').value.trim();
+  if (!text || !model) return;
+
+  const { label, confidence, probPhish } = model.predict(text);
+  const feats = extractFeatures(text);
+
+  const box = document.getElementById('result-box');
+  const verdict = document.getElementById('result-verdict');
+  const detail  = document.getElementById('result-detail');
+  const pills   = document.getElementById('result-pills');
+
+  box.className = 'result-box ' + (label === 1 ? 'result-phish' : 'result-safe');
+  box.style.display = 'block';
+
+  verdict.textContent = label === 1
+    ? `Phishing detected — ${(confidence * 100).toFixed(1)}% confidence`
+    : `Safe email — ${(confidence * 100).toFixed(1)}% confidence`;
+
+  const details = [];
+  if (feats.urgencyWords > 0) details.push(`${feats.urgencyWords} urgency word(s)`);
+  if (feats.urlCount > 0)     details.push(`${feats.urlCount} URL(s) detected`);
+  if (feats.moneyMentions > 0) details.push(`${feats.moneyMentions} money reference(s)`);
+  if (feats.exclamations > 0) details.push(`${feats.exclamations} exclamation mark(s)`);
+  if (feats.capsRatio > 0.15) details.push(`High caps ratio (${(feats.capsRatio * 100).toFixed(0)}%)`);
+  detail.textContent = details.length ? 'Signals: ' + details.join(' · ') : 'No strong signals detected.';
+
+  pills.innerHTML = '';
+  feats.phishKws.slice(0, 8).forEach(kw => {
+    const p = document.createElement('span');
+    p.className = 'pill pill-red';
+    p.textContent = kw;
+    pills.appendChild(p);
+  });
+
+  const safeWords = ['team','meeting','attached','schedule','review','regards','please','thank'].filter(w => text.toLowerCase().includes(w));
+  safeWords.slice(0, 4).forEach(kw => {
+    const p = document.createElement('span');
+    p.className = 'pill pill-green';
+    p.textContent = kw;
+    pills.appendChild(p);
+  });
+}
+
+function clearInput() {
+  document.getElementById('email-input').value = '';
+  document.getElementById('result-box').style.display = 'none';
+}
+
+const SAMPLES = {
+  phish: `Subject: URGENT - Your Account Will Be Suspended
+
+Dear Customer,
+
+Your account has been flagged for suspicious activity. You must verify your credentials IMMEDIATELY or your account will be permanently suspended within 24 hours.
+
+Click here to verify: http://secure-login-verify.net/confirm
+
+Enter your username, password, and credit card details to restore access. Failure to act now will result in permanent loss of your account.
+
+Security Team`,
+  safe: `Hi Sarah,
+
+Just a quick follow-up on our meeting from yesterday. I've attached the project proposal as discussed — please review it when you get a chance and share any feedback by end of week.
+
+Also, the team lunch is confirmed for Thursday at noon. Let me know if you can make it!
+
+Best regards,
+James`,
+  subtle: `Subject: Your password will expire in 24 hours
+
+Hello,
+
+Your corporate email password is set to expire tomorrow. To avoid losing access to your account, please update it at your earliest convenience by visiting the IT portal.
+
+If you have any trouble, contact the help desk. This is an automated reminder.
+
+IT Department`
+};
+
+function loadSample(type) {
+  document.getElementById('email-input').value = SAMPLES[type];
+  document.getElementById('result-box').style.display = 'none';
+}
+
+trainModel();
+</script>
+</body>
+</html>
